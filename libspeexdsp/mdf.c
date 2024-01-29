@@ -150,13 +150,15 @@ struct SpeexEchoState_ {
    spx_word16_t *E;
    spx_word32_t *PHI;    /* scratch */
    spx_word32_t *W;      /* (Background) filter weights */
-#ifdef TWO_PATH
+
+#ifdef TWO_PATH         // 双滤波结构的支持
    spx_word16_t *foreground; /* Foreground filter weights */
    spx_word32_t  Davg1;  /* 1st recursive average of the residual power difference */
    spx_word32_t  Davg2;  /* 2nd recursive average of the residual power difference */
    spx_float_t   Dvar1;  /* Estimated variance of 1st estimator */
    spx_float_t   Dvar2;  /* Estimated variance of 2nd estimator */
 #endif
+
    spx_word32_t *power;  /* Power of the far-end signal */
    spx_float_t  *power_1;/* Inverse power of far-end */
    spx_word16_t *wtmp;   /* scratch */
@@ -701,8 +703,8 @@ EXPORT void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *in, c
 
    N = st->window_size;
    M = st->M;
-   C = st->C;
-   K = st->K;
+   C = st->C;     // 麦克风输入通道数
+   K = st->K;     // Speaker输出通道数
 
    st->cancel_count++;
 #ifdef FIXED_POINT
@@ -713,6 +715,7 @@ EXPORT void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *in, c
    ss_1 = 1-ss;
 #endif
 
+   // 每一个麦克风输入通道处理
    for (chan = 0; chan < C; chan++)
    {
       /* Apply a notch filter to make sure DC doesn't end up causing problems */
@@ -743,6 +746,7 @@ EXPORT void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *in, c
       }
    }
 
+   // 每一个Speaker输出通道处理
    for (speak = 0; speak < K; speak++)
    {
       for (i=0;i<st->frame_size;i++)
@@ -770,14 +774,15 @@ EXPORT void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *in, c
 
    for (speak = 0; speak < K; speak++)
    {
-      /* Shift memory: this could be optimized eventually*/
+      /* Shift memory: this could be optimized eventually.
+         输入x 进行偏移操作, 构成新的 x */
       for (j=M-1;j>=0;j--)
       {
          for (i=0;i<N;i++)
             st->X[(j+1)*N*K+speak*N+i] = st->X[j*N*K+speak*N+i];
       }
       /* Convert x (echo input) to frequency domain */
-      spx_fft(st->fft_table, st->x+speak*N, &st->X[speak*N]);
+      spx_fft(st->fft_table, st->x+speak*N, &st->X[speak*N]); // st->x 数据FFT变换转换到频域放在 st->X 中
    }
 
    Sxx = 0;
@@ -852,7 +857,8 @@ EXPORT void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *in, c
                for (i=0;i<N;i++)
                   st->W[chan*N*K*M + j*N*K + speak*N + i] -= SHL32(EXTEND32(st->wtmp2[i]),16+NORMALIZE_SCALEDOWN-NORMALIZE_SCALEUP-1);
 #else
-               spx_ifft(st->fft_table, &st->W[chan*N*K*M + j*N*K + speak*N], st->wtmp);
+               // 先将滤波系数转换到时域, 再将后半部分系数清0, 最后重新转换滤波系数到频域
+               spx_ifft(st->fft_table, &st->W[chan*N*K*M + j*N*K + speak*N], st->wtmp);  
                for (i=st->frame_size;i<N;i++)
                {
                   st->wtmp[i]=0;
@@ -864,7 +870,7 @@ EXPORT void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *in, c
       }
    }
 
-   /* So we can use power_spectrum_accum */
+   /* So we can use power_spectrum_accum 累计功率谱 */
    for (i=0;i<=st->frame_size;i++)
       st->Rf[i] = st->Yf[i] = st->Xf[i] = 0;
 
@@ -990,7 +996,7 @@ EXPORT void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *in, c
          st->e[chan*N+i] = 0;
       }
 
-      /* Compute a bunch of correlations */
+      /* Compute a bunch of correlations 相关性计算 */
       /* FIXME: bad merge */
       Sey += mdf_inner_prod(st->e+chan*N+st->frame_size, st->y+chan*N+st->frame_size, st->frame_size);
       Syy += mdf_inner_prod(st->y+chan*N+st->frame_size, st->y+chan*N+st->frame_size, st->frame_size);

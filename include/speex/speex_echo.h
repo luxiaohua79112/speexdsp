@@ -77,6 +77,7 @@ typedef struct SpeexEchoState_ SpeexEchoState;
 SpeexEchoState *speex_echo_state_init(int frame_size, int filter_length);
 
 /** Creates a new multi-channel echo canceller state
+ * 支持多麦克风和多喇叭的AEC
  * @param frame_size Number of samples to process at one time (should correspond to 10-20 ms)
  * @param filter_length Number of samples of echo to cancel (should generally correspond to 100-500 ms)
  * @param nb_mic Number of microphone channels
@@ -94,13 +95,13 @@ void speex_echo_state_destroy(SpeexEchoState *st);
  * to playback in this form)
  *
  * @param st Echo canceller state
- * @param rec Signal from the microphone (near end + far end echo)
- * @param play Signal played to the speaker (received from far end)
- * @param out Returns near-end signal with echo removed
+ * @param rec Signal from the microphone (near end + far end echo)  输入 d(n)数据
+ * @param play Signal played to the speaker (received from far end) 输入 x(n)数据
+ * @param out Returns near-end signal with echo removed             输出 消除的数据
  */
 void speex_echo_cancellation(SpeexEchoState *st, const spx_int16_t *rec, const spx_int16_t *play, spx_int16_t *out);
 
-/** Performs echo cancellation a frame (deprecated) */
+/** Performs echo cancellation a frame (deprecated) 实际消音操作 */
 void speex_echo_cancel(SpeexEchoState *st, const spx_int16_t *rec, const spx_int16_t *play, spx_int16_t *out, spx_int32_t *Yout);
 
 /** Perform echo cancellation using internal playback buffer, which is delayed by two frames
